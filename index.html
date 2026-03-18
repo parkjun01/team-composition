@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>공강전도 짝 만들기</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-screen bg-orange-50 p-4 md:p-8 font-sans text-gray-800">
+    <div class="max-w-5xl mx-auto space-y-6">
+        
+        <!-- 헤더 -->
+        <div class="text-center space-y-2 mb-8">
+            <h1 class="text-3xl md:text-4xl font-bold text-orange-600 flex items-center justify-center gap-2">
+                🔥🏃🏻‍♂️ 공강전도 짝 만들기 🏃🏻‍♀️🔥
+            </h1>
+            <p class="text-gray-600">이름, 성별, 시간을 입력하면 조건에 맞춰 자동으로 조를 편성해줍니다.</p>
+        </div>
+
+        <div class="grid md:grid-cols-2 gap-6">
+            <!-- 왼쪽: 입력 영역 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        📝 데이터 입력
+                    </h2>
+                    <div class="flex flex-wrap gap-2 justify-end">
+                        <button id="openModalBtn" class="text-sm text-blue-600 hover:text-blue-800 flex items-center gap-1 bg-blue-50 px-3 py-1 rounded-full transition-colors font-bold shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/></svg>
+                            사전 명단 설정
+                        </button>
+                        <button id="testDataBtn" class="text-sm text-orange-500 hover:text-orange-700 flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full transition-colors shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+                            테스트 데이터
+                        </button>
+                    </div>
+                </div>
+
+                <div class="bg-blue-50 text-blue-800 text-sm p-3 rounded-lg mb-4 flex gap-2 items-start">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mt-0.5 shrink-0"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+                    <div>
+                        <strong>입력 규칙:</strong> 아래에는 <code>이름 시작시간-종료시간</code> 형식으로 적어주세요. 여러 시간대 입력도 가능합니다.<br/>
+                        <span class="text-gray-500 text-xs">(예: 김민정 08:30-10:00, 11:00-12:30) ※ 성별은 <span class="text-blue-600 font-bold">[사전 명단 설정]</span>에서 확인합니다.</span>
+                    </div>
+                </div>
+
+                <label class="block text-sm font-bold text-gray-700 mb-1">🕒 공강 시간 입력 (이름 시간)</label>
+                <textarea
+                    id="inputText"
+                    class="w-full flex-grow min-h-[180px] p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-400 focus:border-transparent outline-none resize-none font-mono text-sm"
+                    placeholder="여기에 복사한 텍스트를 붙여넣으세요...&#13;&#10;&#13;&#10;김민정 08:30-10:00&#13;&#10;오유리 08:30-09:30&#13;&#10;이서윤 08:30-09:00"
+                ></textarea>
+
+                <p id="errorMsg" class="hidden text-red-500 text-sm mt-3 font-medium"></p>
+
+                <button
+                    id="generateBtn"
+                    class="mt-4 w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-xl transition-colors shadow-md flex justify-center items-center gap-2"
+                >
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" y1="8" x2="19" y2="14"/><line x1="22" y1="11" x2="16" y2="11"/></svg>
+                    팀 편성하기
+                </button>
+            </div>
+
+            <!-- 오른쪽: 결과 영역 -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex flex-col h-full">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-bold flex items-center gap-2">
+                        ✨ 편성 결과
+                    </h2>
+                    <button
+                        id="copyBtn"
+                        disabled
+                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-50 text-gray-400 cursor-not-allowed"
+                    >
+                        <span id="copyIcon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+                        </span>
+                        <span id="copyText">복사하기</span>
+                    </button>
+                </div>
+
+                <textarea
+                    id="outputText"
+                    readonly
+                    class="w-full flex-grow min-h-[300px] p-4 bg-gray-50 border border-gray-200 rounded-xl outline-none resize-none text-sm whitespace-pre-wrap font-sans"
+                    placeholder="편성 결과가 여기에 표시됩니다."
+                ></textarea>
+
+                <!-- 조건에 맞아 편성되지 못한 인원 알림 -->
+                <div id="unassignedContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
+                    <h3 id="unassignedTitle" class="text-sm font-bold text-red-700 mb-2">⚠️ 편성되지 못한 인원 (0명)</h3>
+                    <p class="text-xs text-red-600 mb-2">조건(성별, 공강시간 겹침)에 맞는 짝을 찾지 못해 남은 인원입니다. 수동으로 확인해주세요.</p>
+                    <div id="unassignedList" class="flex flex-wrap gap-2">
+                        <!-- 동적 추가됨 -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 하단 규칙 안내 -->
+        <div class="bg-white/60 p-5 rounded-xl text-sm text-gray-600 max-w-3xl mx-auto">
+            <p class="font-bold text-gray-800 mb-2">💡 편성 규칙 적용 내역:</p>
+            <ul class="list-disc pl-5 space-y-1">
+                <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다. (최대한 많은 인원을 묶기 위해 3명을 우선 찾습니다)</li>
+                <li><strong>남1+여1 (불가) / 남2+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (여+여, 남+남, 여+여+여, 여+여+남 등은 허용)</li>
+                <li>참여자들의 시간이 서로 <strong>겹치는 구간</strong>을 찾아 자동으로 교집합 시간에 맞추어 배정합니다.</li>
+            </ul>
+        </div>
+        
+    </div>
+
+    <!-- 사전 명단 모달 (팝업) -->
+    <div id="memberModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4 transition-opacity">
+        <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+            <div class="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
+                <h3 class="text-lg font-bold text-blue-800 flex items-center gap-2">
+                    📋 사전 명단 관리
+                </h3>
+                <button id="closeModalBtn" class="text-gray-500 hover:text-gray-800 transition-colors">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
+                </button>
+            </div>
+            <div class="p-5 flex-grow flex flex-col">
+                <p class="text-sm text-gray-600 mb-3">
+                    동아리원/참여자의 이름과 성별을 미리 등록해두세요. 한 번 등록해두면 브라우저에 계속 저장됩니다.
+                </p>
+                <label class="block text-xs font-bold text-gray-500 mb-1">형식: 이름 성별 (예: 김민정 여)</label>
+                <textarea
+                    id="memberListText"
+                    class="w-full flex-grow min-h-[250px] p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none resize-none font-mono text-sm bg-gray-50"
+                    placeholder="김민정 여&#13;&#10;홍길동 남"
+                >이서윤 여&#13;&#10;오유리 여&#13;&#10;김민정 여&#13;&#10;송채이 여&#13;&#10;최혜민 여&#13;&#10;강은서 여&#13;&#10;박지훈 남&#13;&#10;최동현 남&#13;&#10;김철수 남&#13;&#10;이영희 여&#13;&#10;홍길동 남</textarea>
+            </div>
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
+                <button id="saveModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-colors shadow-sm">
+                    저장 및 닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // DOM 요소
+        const memberListTextElement = document.getElementById('memberListText');
+        const inputTextElement = document.getElementById('inputText');
+        const outputTextElement = document.getElementById('outputText');
+        const errorMsgElement = document.getElementById('errorMsg');
+        const generateBtn = document.getElementById('generateBtn');
+        const copyBtn = document.getElementById('copyBtn');
+        const copyIcon = document.getElementById('copyIcon');
+        const copyText = document.getElementById('copyText');
+        const testDataBtn = document.getElementById('testDataBtn');
+        const unassignedContainer = document.getElementById('unassignedContainer');
+        const unassignedTitle = document.getElementById('unassignedTitle');
+        const unassignedList = document.getElementById('unassignedList');
+        
+        // 모달 관련 DOM 요소
+        const memberModal = document.getElementById('memberModal');
+        const openModalBtn = document.getElementById('openModalBtn');
+        const closeModalBtn = document.getElementById('closeModalBtn');
+        const saveModalBtn = document.getElementById('saveModalBtn');
+
+        // 모달 열기/닫기 로직
+        const openModal = () => memberModal.classList.remove('hidden');
+        const closeModal = () => memberModal.classList.add('hidden');
+
+        openModalBtn.addEventListener('click', openModal);
+        closeModalBtn.addEventListener('click', closeModal);
+        saveModalBtn.addEventListener('click', closeModal);
+        
+        // 모달 배경 클릭 시 닫기
+        memberModal.addEventListener('click', (e) => {
+            if (e.target === memberModal) closeModal();
+        });
+
+        // --- 추가된 부분: 로컬 스토리지에서 명단 불러오기 ---
+        const savedMemberList = localStorage.getItem('gonggang_member_list');
+        if (savedMemberList !== null) {
+            memberListTextElement.value = savedMemberList;
+        }
+
+        // --- 추가된 부분: 명단이 수정될 때마다 로컬 스토리지에 자동 저장 ---
+        memberListTextElement.addEventListener('input', (e) => {
+            localStorage.setItem('gonggang_member_list', e.target.value);
+        });
+
+        // 시간 문자열(HH:MM)을 분(minutes)으로 변환
+        const timeToMinutes = (timeStr) => {
+            const [h, m] = timeStr.split(':');
+            return parseInt(h, 10) * 60 + parseInt(m, 10);
+        };
+
+        // 분(minutes)을 시간 문자열(HH:MM)로 변환
+        const minutesToTime = (mins) => {
+            const h = Math.floor(mins / 60);
+            const m = mins % 60;
+            return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+        };
+
+        // N명 조합(Combination) 구하는 함수
+        const getCombinations = (array, size) => {
+            const result = [];
+            const combine = (start, combo) => {
+                if (combo.length === size) {
+                    result.push(combo);
+                    return;
+                }
+                for (let i = start; i < array.length; i++) {
+                    combine(i + 1, [...combo, array[i]]);
+                }
+            };
+            combine(0, []);
+            return result;
+        };
+
+        // 그룹이 조건에 맞는지 검증하는 함수
+        const isValidGroup = (group) => {
+            const males = group.filter(p => p.gender === '남').length;
+            const females = group.filter(p => p.gender === '여').length;
+
+            if (group.length === 2) {
+                if (males === 1 && females === 1) return { valid: false };
+            } else if (group.length === 3) {
+                if (males === 2 && females === 1) return { valid: false };
+            }
+
+            // 모든 멤버가 공통으로 겹치는 시간(10분 이상) 찾기
+            let commonTimes = group[0].times;
+            for (let i = 1; i < group.length; i++) {
+                let nextCommon = [];
+                for (let a of commonTimes) {
+                    for (let b of group[i].times) {
+                        let start = Math.max(a.start, b.start);
+                        let end = Math.min(a.end, b.end);
+                        if (end - start >= 10) {
+                            nextCommon.push({start, end});
+                        }
+                    }
+                }
+                commonTimes = nextCommon;
+                if (commonTimes.length === 0) break;
+            }
+
+            if (commonTimes.length === 0) return { valid: false };
+
+            // 겹치는 시간 중 가장 긴 구간 선택
+            let bestOverlap = commonTimes.reduce((max, t) => (t.end - t.start) > (max.end - max.start) ? t : max, commonTimes[0]);
+
+            return { valid: true, overlapStart: bestOverlap.start, overlapEnd: bestOverlap.end };
+        };
+
+        // 숫자 이모지 변환 (1~10)
+        const getNumberEmoji = (num) => {
+            const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
+            return num <= 10 ? emojis[num - 1] : `[${num}]`;
+        };
+
+        const showError = (msg) => {
+            if(msg) {
+                errorMsgElement.textContent = msg;
+                errorMsgElement.classList.remove('hidden');
+            } else {
+                errorMsgElement.classList.add('hidden');
+            }
+        };
+
+        // 텍스트 파싱 및 매칭 실행
+        const handleGenerate = () => {
+            showError('');
+            const memberText = memberListTextElement.value;
+            const inputText = inputTextElement.value;
+            
+            if (!inputText.trim()) {
+                showError('공강 시간 데이터를 입력해주세요.');
+                return;
+            }
+
+            // 1. 사전 명단 파싱 (딕셔너리 생성)
+            const memberDict = {};
+            const memberRegex = /([가-힣a-zA-Z]+)\s*(남|여)/g;
+            let mMatch;
+            while ((mMatch = memberRegex.exec(memberText)) !== null) {
+                memberDict[mMatch[1]] = mMatch[2];
+            }
+
+            // 2. 공강 시간 파싱
+            // 이름 단위로 여러 시간을 가질 수 있도록 맵 사용
+            const peopleMap = new Map();
+            const lines = inputText.split('\n');
+            const missingGenders = new Set();
+            
+            for (const line of lines) {
+                if (!line.trim()) continue;
+                
+                const nameMatch = line.match(/^([가-힣a-zA-Z]+)/);
+                if (!nameMatch) continue;
+                const name = nameMatch[1];
+                const gender = memberDict[name];
+                
+                if (!gender) {
+                    missingGenders.add(name);
+                    continue;
+                }
+
+                const timeRegex = /(\d{1,2}:\d{2})\s*[~-]\s*(\d{1,2}:\d{2})/g;
+                let tMatch;
+                const times = [];
+                while ((tMatch = timeRegex.exec(line)) !== null) {
+                    times.push({
+                        start: timeToMinutes(tMatch[1]),
+                        end: timeToMinutes(tMatch[2]),
+                        originalTime: `${tMatch[1]}-${tMatch[2]}`
+                    });
+                }
+
+                if (times.length > 0) {
+                    if (!peopleMap.has(name)) {
+                        peopleMap.set(name, {
+                            id: Math.random().toString(36).substr(2, 9),
+                            name: name,
+                            gender: gender,
+                            times: [],
+                            originalTimesStr: []
+                        });
+                    }
+                    const person = peopleMap.get(name);
+                    person.times.push(...times);
+                    times.forEach(t => person.originalTimesStr.push(t.originalTime));
+                }
+            }
+
+            if (missingGenders.size > 0) {
+                showError(`사전 명단에 다음 인원의 성별 정보가 없습니다: ${Array.from(missingGenders).join(', ')}`);
+                return;
+            }
+
+            const parsedPeople = Array.from(peopleMap.values());
+
+            if (parsedPeople.length === 0) {
+                showError('형식에 맞는 데이터가 없습니다. (예: 김민정 08:30-10:00)');
+                return;
+            }
+
+            // 전체 공강 시간이 적은 사람부터 우선 배치
+            const getTotalTime = (p) => p.times.reduce((sum, t) => sum + (t.end - t.start), 0);
+            let currentUnassigned = [...parsedPeople].sort((a, b) => getTotalTime(a) - getTotalTime(b));
+            const formedGroups = [];
+
+            let progress = true;
+            while (progress) {
+                progress = false;
+
+                const combs3 = getCombinations(currentUnassigned, 3);
+                const valid3 = combs3.map(c => ({ combo: c, ...isValidGroup(c) })).filter(r => r.valid);
+                
+                if (valid3.length > 0) {
+                    valid3.sort((a, b) => (b.overlapEnd - b.overlapStart) - (a.overlapEnd - a.overlapStart));
+                    const best = valid3[0];
+                    
+                    formedGroups.push({
+                        people: best.combo,
+                        start: best.overlapStart,
+                        end: best.overlapEnd
+                    });
+                    
+                    currentUnassigned = currentUnassigned.filter(p => !best.combo.some(member => member.id === p.id));
+                    progress = true;
+                    continue;
+                }
+
+                const combs2 = getCombinations(currentUnassigned, 2);
+                const valid2 = combs2.map(c => ({ combo: c, ...isValidGroup(c) })).filter(r => r.valid);
+                
+                if (valid2.length > 0) {
+                    valid2.sort((a, b) => (b.overlapEnd - b.overlapStart) - (a.overlapEnd - a.overlapStart));
+                    const best = valid2[0];
+                    
+                    formedGroups.push({
+                        people: best.combo,
+                        start: best.overlapStart,
+                        end: best.overlapEnd
+                    });
+                    
+                    currentUnassigned = currentUnassigned.filter(p => !best.combo.some(member => member.id === p.id));
+                    progress = true;
+                    continue;
+                }
+            }
+
+            let result = `🔥🏃🏻‍♂️공강전도 팀구성🏃🏻‍♀️🔥\n\n`;
+            result += `복 많이 받으세요☺️\n`;
+            result += `공강전도 팀구성입니다~!!🫶🏻\n\n`;
+
+            formedGroups.sort((a, b) => a.start - b.start);
+
+            formedGroups.forEach((group, index) => {
+                const emoji = getNumberEmoji(index + 1);
+                const timeStr = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
+                const names = group.people.map(p => p.name).join(' ');
+                
+                result += `${emoji} ${timeStr}\n${names}\n`;
+            });
+
+            result += `\n* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
+
+            outputTextElement.value = result;
+
+            // 버튼 상태 업데이트
+            copyBtn.disabled = false;
+            copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200";
+
+            // 미할당 인원 렌더링
+            if (currentUnassigned.length > 0) {
+                unassignedTitle.textContent = `⚠️ 편성되지 못한 인원 (${currentUnassigned.length}명)`;
+                unassignedList.innerHTML = currentUnassigned.map(p => 
+                    `<span class="text-xs bg-white px-2 py-1 rounded border border-red-200 text-red-600">
+                        ${p.name}(${p.gender}) ${p.originalTimesStr.join(', ')}
+                    </span>`
+                ).join('');
+                unassignedContainer.classList.remove('hidden');
+            } else {
+                unassignedContainer.classList.add('hidden');
+                unassignedList.innerHTML = '';
+            }
+        };
+
+        // 클립보드 복사
+        const handleCopy = () => {
+            const outputText = outputTextElement.value;
+            if (!outputText) return;
+            
+            const setCopiedState = () => {
+                copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-green-100 text-green-700";
+                copyIcon.style.display = 'none';
+                copyText.textContent = '복사 완료!';
+                
+                setTimeout(() => {
+                    copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200";
+                    copyIcon.style.display = 'inline-block';
+                    copyText.textContent = '복사하기';
+                }, 2000);
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(outputText).then(setCopiedState).catch(() => {
+                    fallbackCopyTextToClipboard(outputText, setCopiedState);
+                });
+            } else {
+                fallbackCopyTextToClipboard(outputText, setCopiedState);
+            }
+        };
+
+        const fallbackCopyTextToClipboard = (text, callback) => {
+            const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                callback();
+            } catch (err) {
+                showError('클립보드 복사에 실패했습니다.');
+            }
+            document.body.removeChild(textArea);
+        };
+
+        // 테스트 데이터 삽입
+        const insertTestData = () => {
+            const memberData = `이서윤 여\n오유리 여\n김민정 여\n송채이 여\n최혜민 여\n강은서 여\n박지훈 남\n최동현 남\n김철수 남\n이영희 여\n홍길동 남`;
+            const testData = `이서윤 08:30-10:00, 13:00-14:00\n오유리 08:00-09:30\n김민정 08:30-09:00\n송채이 08:30-09:30\n최혜민 08:00-10:30\n강은서 08:30-09:30\n박지훈 11:00-13:00\n최동현 11:30-14:00\n김철수 11:00-12:30\n이영희 11:00-12:00\n홍길동 08:30-09:30\n홍길동 15:00-16:00`;
+            
+            memberListTextElement.value = memberData;
+            inputTextElement.value = testData;
+            localStorage.setItem('gonggang_member_list', memberData); // 테스트 데이터도 로컬 스토리지에 반영
+        };
+
+        // 이벤트 리스너 등록
+        generateBtn.addEventListener('click', handleGenerate);
+        copyBtn.addEventListener('click', handleCopy);
+        testDataBtn.addEventListener('click', insertTestData);
+    </script>
+</body>
+</html>
