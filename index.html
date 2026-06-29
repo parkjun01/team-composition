@@ -82,7 +82,7 @@
                     <button
                         id="copyBtn"
                         disabled
-                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-400 cursor-not-allowed"
                     >
                         <span id="copyIcon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -100,7 +100,7 @@
 
                 <div id="unassignedContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
                     <h3 id="unassignedTitle" class="text-sm font-bold text-red-700 mb-2">⚠️ 편성되지 못한 인원 (0명)</h3>
-                    <p class="text-xs text-red-600 mb-2">조건(성별, 공강시간 겹침)에 맞는 짝을 찾지 못해 남은 인원입니다. 수동으로 확인해주세요.</p>
+                    <p class="text-xs text-red-600 mb-2">모든 제출 시간대에서 조건(성별, 시간 부족 등)을 만족하지 못해 제외된 명단입니다.</p>
                     <div id="unassignedList" class="flex flex-wrap gap-2">
                         </div>
                 </div>
@@ -112,8 +112,9 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다.</li>
                 <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (2인조는 오직 동성팀만 결성됩니다)</li>
-                <li><strong>혼성 팀(3인조) 결성</strong>을 최우선으로 매칭 시뮬레이션을 진행합니다.</li>
-                <li><strong>최종 구제 기능 추가:</strong> 낙오자를 없애기 위해 마지막에 남은 인원들끼리 동성(남남/여여) 2인조를 적극적으로 추가 편성합니다.</li>
+                <li><strong>혼성 팀(3인조) 결성</strong>을 최우선 가중치로 설정합니다.</li>
+                <li><strong>시간대가 다르면 한 사람이 여러 조에 포함될 수 있습니다.</strong> 제출한 공강 시간들을 개별 기회로 분리하여 최대한 많은 매칭을 만들어냅니다.</li>
+                <li>마지막에 남은 자투리 인원들은 <strong>동성(남남/여여) 2인팀</strong>으로 추가 구제 편성하여 낙오자를 최소화합니다.</li>
             </ul>
         </div>
         
@@ -264,7 +265,6 @@
             }
         });
 
-        // 모달 내 텍스트 수정 즉시 로컬 스토리지 백업
         memberListTextElement.addEventListener('input', (e) => {
             localStorage.setItem('gonggang_member_list', e.target.value);
         });
@@ -304,7 +304,6 @@
             closeModal();
         });
 
-        // 시간 관련 함수
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(':');
             return parseInt(h, 10) * 60 + parseInt(m, 10);
@@ -316,7 +315,7 @@
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
-        // 매칭 검증 알고리즘
+        // 매칭 검증 알고리즘 (개별 객체 매칭용)
         const isValidGroup = (group, minOverlap) => {
             const males = group.filter(p => p.gender === '남').length;
             const females = group.filter(p => p.gender === '여').length;
@@ -327,26 +326,21 @@
                 return { valid: false };
             }
 
-            let commonTimes = group[0].times;
+            // 한 사람이 여러 조에 들어가므로, 여기서는 각각의 단일 시간대 객체(.time)끼리 비교함
+            let start = group[0].time.start;
+            let end = group[0].time.end;
+
             for (let i = 1; i < group.length; i++) {
-                let nextCommon = [];
-                for (let a of commonTimes) {
-                    for (let b of group[i].times) {
-                        let start = Math.max(a.start, b.start);
-                        let end = Math.min(a.end, b.end);
-                        if (end - start >= minOverlap) {
-                            nextCommon.push({start, end});
-                        }
-                    }
-                }
-                commonTimes = nextCommon;
-                if (commonTimes.length === 0) break;
+                start = Math.max(start, group[i].time.start);
+                end = Math.min(end, group[i].time.end);
+                if (end - start < minOverlap) return { valid: false };
             }
 
-            if (commonTimes.length === 0) return { valid: false };
-            let bestOverlap = commonTimes.reduce((max, t) => (t.end - t.start) > (max.end - max.start) ? t : max, commonTimes[0]);
+            // 같은 시간대 안에 동일 인물이 중복으로 들어가는 현상 완전 차단
+            const nameSet = new Set(group.map(p => p.name));
+            if (nameSet.size !== group.length) return { valid: false };
 
-            return { valid: true, overlapStart: bestOverlap.start, overlapEnd: bestOverlap.end };
+            return { valid: true, overlapStart: start, overlapEnd: end };
         };
 
         const getNumberEmoji = (num) => {
@@ -380,7 +374,8 @@
                 memberDict[mMatch[1]] = mMatch[2];
             }
 
-            const peopleMap = new Map();
+            // 개별 시간 단위로 쪼갠 전체 데이터 풀 생성 (한 사람이 여러 행으로 분리됨)
+            const timeUnitPool = [];
             const lines = inputText.split('\n');
             const missingGenders = new Set();
             const minOverlap = parseInt(document.getElementById('minOverlap').value, 10);
@@ -400,28 +395,17 @@
 
                 const timeRegex = /(\d{1,2}:\d{2})\s*[~-]\s*(\d{1,2}:\d{2})/g;
                 let tMatch;
-                const times = [];
                 while ((tMatch = timeRegex.exec(line)) !== null) {
-                    times.push({
-                        start: timeToMinutes(tMatch[1]),
-                        end: timeToMinutes(tMatch[2]),
-                        originalTime: `${tMatch[1]}-${tMatch[2]}`
+                    timeUnitPool.push({
+                        id: Math.random().toString(36).substr(2, 9),
+                        name: name,
+                        gender: gender,
+                        time: {
+                            start: timeToMinutes(tMatch[1]),
+                            end: timeToMinutes(tMatch[2]),
+                            originalStr: `${tMatch[1]}-${tMatch[2]}`
+                        }
                     });
-                }
-
-                if (times.length > 0) {
-                    if (!peopleMap.has(name)) {
-                        peopleMap.set(name, {
-                            id: Math.random().toString(36).substr(2, 9),
-                            name: name,
-                            gender: gender,
-                            times: [],
-                            originalTimesStr: []
-                        });
-                    }
-                    const person = peopleMap.get(name);
-                    person.times.push(...times);
-                    times.forEach(t => person.originalTimesStr.push(t.originalTime));
                 }
             }
 
@@ -430,45 +414,46 @@
                 return;
             }
 
-            const parsedPeople = Array.from(peopleMap.values());
-            if (parsedPeople.length === 0) {
+            if (timeUnitPool.length === 0) {
                 showError('형식에 맞는 데이터가 없습니다. (예: 김민정 08:30-10:00)');
                 return;
             }
 
-            // 시뮬레이션 기반 매칭 루프 (혼성 팀 최우선 + 최대 매칭)
-            let bestResult = { formedGroups: [], unassigned: [...parsedPeople], unassignedCount: parsedPeople.length, totalOverlap: 0, mixedGroupCount: 0 };
+            // 시뮬레이션 매칭 알고리즘 시작
+            let bestResult = { formedGroups: [], unassigned: [...timeUnitPool], unassignedCount: timeUnitPool.length, totalOverlap: 0, mixedGroupCount: 0 };
             const NUM_ITERATIONS = 500;
 
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
-                let currentUnassigned = [...parsedPeople];
+                let currentPool = [...timeUnitPool];
                 
+                // 셔플
                 if (iter === 0) {
-                    const getTotalTime = (p) => p.times.reduce((sum, t) => sum + (t.end - t.start), 0);
-                    currentUnassigned.sort((a, b) => getTotalTime(a) - getTotalTime(b));
+                    currentPool.sort((a, b) => (a.time.end - a.time.start) - (b.time.end - b.time.start));
                 } else {
-                    for (let i = currentUnassigned.length - 1; i > 0; i--) {
+                    for (let i = currentPool.length - 1; i > 0; i--) {
                         const j = Math.floor(Math.random() * (i + 1));
-                        [currentUnassigned[i], currentUnassigned[j]] = [currentUnassigned[j], currentUnassigned[i]];
+                        [currentPool[i], currentPool[j]] = [currentPool[j], currentPool[i]];
                     }
                 }
 
                 let formedGroups = [];
                 let skipped = [];
 
-                while (currentUnassigned.length > 0) {
-                    let p1 = currentUnassigned.shift();
+                while (currentPool.length > 0) {
+                    let p1 = currentPool.shift();
                     let validGroups = [];
                     
-                    for (let i = 0; i < currentUnassigned.length; i++) {
-                        let g = [p1, currentUnassigned[i]];
+                    // 2인조 후보 탐색
+                    for (let i = 0; i < currentPool.length; i++) {
+                        let g = [p1, currentPool[i]];
                         let res = isValidGroup(g, minOverlap);
                         if (res.valid) validGroups.push({ combo: g, size: 2, ...res });
                     }
                     
-                    for (let i = 0; i < currentUnassigned.length; i++) {
-                        for (let j = i + 1; j < currentUnassigned.length; j++) {
-                            let g = [p1, currentUnassigned[i], currentUnassigned[j]];
+                    // 3인조 후보 탐색
+                    for (let i = 0; i < currentPool.length; i++) {
+                        for (let j = i + 1; j < currentPool.length; j++) {
+                            let g = [p1, currentPool[i], currentPool[j]];
                             let res = isValidGroup(g, minOverlap);
                             if (res.valid) validGroups.push({ combo: g, size: 3, ...res });
                         }
@@ -482,7 +467,7 @@
                             let isMixed = (males > 0 && females > 0);
 
                             if (g.size === 3 && isMixed) {
-                                g.score = 50000 + overlapLen;
+                                g.score = 50000 + overlapLen; // 3인 혼성 최우선
                             } else if (g.size === 3) {
                                 g.score = 20000 + overlapLen;
                             } else {
@@ -501,13 +486,13 @@
                         });
                         
                         let assignedIds = best.combo.map(m => m.id);
-                        currentUnassigned = currentUnassigned.filter(u => !assignedIds.includes(u.id));
+                        currentPool = currentPool.filter(u => !assignedIds.includes(u.id));
                     } else {
                         skipped.push(p1);
                     }
                 }
 
-                // --- 🌟 [2단계 쥐어짜기] 남겨진 인원들 간에 동성(남남/여여) 2인팀 결성 시도 ---
+                // 2단계 구제: 매칭 안 된 시간 단위 데이터끼리 동성(남남/여여) 2인조 강제 편성
                 if (skipped.length >= 2) {
                     let stillSkipped = [];
                     while (skipped.length > 0) {
@@ -516,7 +501,7 @@
                         
                         for (let i = 0; i < skipped.length; i++) {
                             let g = [p1, skipped[i]];
-                            let res = isValidGroup(g, minOverlap); // 남1+여1은 이 함수 내부에서 자동 차단됨
+                            let res = isValidGroup(g, minOverlap);
                             if (res.valid) {
                                 formedGroups.push({
                                     people: g,
@@ -529,9 +514,7 @@
                                 break;
                             }
                         }
-                        if (!foundPair) {
-                            stillSkipped.push(p1);
-                        }
+                        if (!foundPair) stillSkipped.push(p1);
                     }
                     skipped = stillSkipped;
                 }
@@ -560,10 +543,9 @@
             result += `복 많이 받으세요☺️\n`;
             result += `공강전도 팀구성입니다~!!🫶🏻\n\n`;
 
-            // 시간순 정렬
             formedGroups.sort((a, b) => a.start - b.start);
 
-            // 시간대를 key로 하여 그룹화 맵 구성
+            // 시간대 그룹화 및 양식 출력 로직
             const timeGroups = new Map();
             formedGroups.forEach(group => {
                 const timeKey = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
@@ -573,7 +555,6 @@
                 timeGroups.get(timeKey).push(group);
             });
 
-            // 시간대별로 순회하며 결과 문자열 생성
             let globalTeamIndex = 1;
             timeGroups.forEach((groups, timeStr) => {
                 result += `⏱️ ${timeStr}\n`;
@@ -592,11 +573,13 @@
             copyBtn.disabled = false;
             copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200";
 
+            // 미할당 렌더링 방식 조정 (이름과 실패한 시간대 매칭)
             if (currentUnassigned.length > 0) {
-                unassignedTitle.textContent = `⚠️ 편성되지 못한 인원 (${currentUnassigned.length}명)`;
+                // 한 사람이 중복해서 리스트에 뜨지 않도록 유니크 처리하되 어떤 시간대가 실패했는지 표시
+                unassignedTitle.textContent = `⚠️ 편성되지 못한 인원 (${currentUnassigned.length}건)`;
                 unassignedList.innerHTML = currentUnassigned.map(p => 
                     `<span class="text-xs bg-white px-2 py-1 rounded border border-red-200 text-red-600">
-                        ${p.name}(${p.gender}) ${p.originalTimesStr.join(', ')}
+                        ${p.name}(${p.gender}) ${p.time.originalStr}
                     </span>`
                 ).join('');
                 unassignedContainer.classList.remove('hidden');
