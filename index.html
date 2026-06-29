@@ -5,11 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>공강전도 짝 만들기</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
 <body class="min-h-screen bg-orange-50 p-4 md:p-8 font-sans text-gray-800">
     <div class="max-w-5xl mx-auto space-y-6">
         
-        <!-- 헤더 -->
         <div class="text-center space-y-2 mb-8">
             <h1 class="text-3xl md:text-4xl font-bold text-orange-600 flex items-center justify-center gap-2">
                 🔥🏃🏻‍♂️ 공강전도 짝 만들기 🏃🏻‍♀️🔥
@@ -18,7 +18,6 @@
         </div>
 
         <div class="grid md:grid-cols-2 gap-6">
-            <!-- 왼쪽: 입력 영역 -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex flex-col h-full">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-bold flex items-center gap-2">
@@ -44,6 +43,19 @@
                     </div>
                 </div>
 
+                <div class="mb-4 flex items-center justify-between bg-gray-50 p-3 rounded-xl border border-gray-200">
+                    <label for="minOverlap" class="text-sm font-bold text-gray-700 flex items-center gap-2">
+                        ⏱️ 최소 교집합 시간
+                        <span class="text-xs font-normal text-gray-500 hidden sm:inline">이 시간 이상 겹쳐야 한 조가 됩니다.</span>
+                    </label>
+                    <select id="minOverlap" class="p-2 text-sm border border-gray-300 rounded-lg outline-none focus:ring-2 focus:ring-orange-400 bg-white">
+                        <option value="10">10분 이상</option>
+                        <option value="20">20분 이상</option>
+                        <option value="30" selected>30분 이상</option>
+                        <option value="60">1시간 이상</option>
+                    </select>
+                </div>
+
                 <label class="block text-sm font-bold text-gray-700 mb-1">🕒 공강 시간 입력 (이름 시간)</label>
                 <textarea
                     id="inputText"
@@ -62,7 +74,6 @@
                 </button>
             </div>
 
-            <!-- 오른쪽: 결과 영역 -->
             <div class="bg-white p-6 rounded-2xl shadow-sm border border-orange-100 flex flex-col h-full">
                 <div class="flex justify-between items-center mb-4">
                     <h2 class="text-lg font-bold flex items-center gap-2">
@@ -87,30 +98,26 @@
                     placeholder="편성 결과가 여기에 표시됩니다."
                 ></textarea>
 
-                <!-- 조건에 맞아 편성되지 못한 인원 알림 -->
                 <div id="unassignedContainer" class="hidden mt-4 p-4 bg-red-50 border border-red-100 rounded-xl">
                     <h3 id="unassignedTitle" class="text-sm font-bold text-red-700 mb-2">⚠️ 편성되지 못한 인원 (0명)</h3>
                     <p class="text-xs text-red-600 mb-2">조건(성별, 공강시간 겹침)에 맞는 짝을 찾지 못해 남은 인원입니다. 수동으로 확인해주세요.</p>
                     <div id="unassignedList" class="flex flex-wrap gap-2">
-                        <!-- 동적 추가됨 -->
-                    </div>
+                        </div>
                 </div>
             </div>
         </div>
 
-        <!-- 하단 규칙 안내 -->
         <div class="bg-white/60 p-5 rounded-xl text-sm text-gray-600 max-w-3xl mx-auto">
             <p class="font-bold text-gray-800 mb-2">💡 편성 규칙 적용 내역:</p>
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다. (최대한 많은 인원을 묶기 위해 3명을 우선 찾습니다)</li>
-                <li><strong>남1+여1 (불가) / 남2+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (여+여, 남+남, 여+여+여, 여+여+남 등은 허용)</li>
+                <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (남2+여1 등 3명 조는 모든 혼성 조합을 허용합니다)</li>
                 <li>참여자들의 시간이 서로 <strong>겹치는 구간</strong>을 찾아 자동으로 교집합 시간에 맞추어 배정합니다.</li>
             </ul>
         </div>
         
     </div>
 
-    <!-- 사전 명단 모달 (팝업) -->
     <div id="memberModal" class="fixed inset-0 bg-black/60 hidden flex items-center justify-center z-50 p-4 transition-opacity">
         <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
             <div class="bg-blue-50 p-4 border-b border-blue-100 flex justify-between items-center">
@@ -121,19 +128,39 @@
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg>
                 </button>
             </div>
+            
+            <div class="bg-gray-100 p-4 border-b border-gray-200 text-sm">
+                <details class="group">
+                    <summary class="font-bold text-gray-700 cursor-pointer flex justify-between items-center outline-none select-none">
+                        <span class="flex items-center gap-2">☁️ Supabase DB 연동 <span class="font-normal text-xs text-gray-500">(연동 완료)</span></span>
+                        <span class="text-gray-400 group-open:rotate-180 transition-transform">▼</span>
+                    </summary>
+                    <div class="mt-3 space-y-2">
+                        <input id="supaUrl" type="text" placeholder="Supabase Project URL" class="w-full p-2 border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500 text-xs font-mono">
+                        <input id="supaKey" type="password" placeholder="Supabase Anon Key" class="w-full p-2 border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500 text-xs font-mono">
+                        <div class="flex justify-between items-center mt-2 pt-1">
+                            <p class="text-[10px] text-gray-500 w-2/3 leading-tight">※ <code>members</code> 테이블 필요<br/>(컬럼: <code>name</code>(PK), <code>gender</code>)</p>
+                            <button id="supaLoadBtn" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm">
+                                DB에서 불러오기
+                            </button>
+                        </div>
+                    </div>
+                </details>
+            </div>
+
             <div class="p-5 flex-grow flex flex-col">
                 <p class="text-sm text-gray-600 mb-3">
-                    동아리원/참여자의 이름과 성별을 미리 등록해두세요. 한 번 등록해두면 브라우저에 계속 저장됩니다.
+                    이름과 성별을 미리 등록해두세요. 브라우저에 자동 저장되며, Supabase 연동 시 DB에도 저장됩니다.
                 </p>
                 <label class="block text-xs font-bold text-gray-500 mb-1">형식: 이름 성별 (예: 김민정 여)</label>
                 <textarea
                     id="memberListText"
-                    class="w-full flex-grow min-h-[250px] p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none resize-none font-mono text-sm bg-gray-50"
+                    class="w-full flex-grow min-h-[200px] p-4 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-400 focus:border-transparent outline-none resize-none font-mono text-sm bg-gray-50"
                     placeholder="김민정 여&#13;&#10;홍길동 남"
                 >이서윤 여&#13;&#10;오유리 여&#13;&#10;김민정 여&#13;&#10;송채이 여&#13;&#10;최혜민 여&#13;&#10;강은서 여&#13;&#10;박지훈 남&#13;&#10;최동현 남&#13;&#10;김철수 남&#13;&#10;이영희 여&#13;&#10;홍길동 남</textarea>
             </div>
-            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end">
-                <button id="saveModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-colors shadow-sm">
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex justify-end gap-2">
+                <button id="saveModalBtn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-6 rounded-xl transition-colors shadow-sm flex items-center gap-2">
                     저장 및 닫기
                 </button>
             </div>
@@ -141,6 +168,10 @@
     </div>
 
     <script>
+        // 기본 제공된 Supabase 자격 증명 설정 (.co 까지만 정제)
+        const DEFAULT_SUPABASE_URL = "https://uospwzmrfaqypnwlhazd.supabase.co";
+        const DEFAULT_SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InVvc3B3em1yZmFxeXBud2xoYXpkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIxMzQxMjMsImV4cCI6MjA5NzcxMDEyM30.qszyTs4DwJSlQnWd4YUqIF27MixNQFRrnvDVD01HVaI";
+
         // DOM 요소
         const memberListTextElement = document.getElementById('memberListText');
         const inputTextElement = document.getElementById('inputText');
@@ -161,71 +192,141 @@
         const closeModalBtn = document.getElementById('closeModalBtn');
         const saveModalBtn = document.getElementById('saveModalBtn');
 
+        // Supabase DOM 요소
+        const supaUrlEl = document.getElementById('supaUrl');
+        const supaKeyEl = document.getElementById('supaKey');
+        const supaLoadBtn = document.getElementById('supaLoadBtn');
+
         // 모달 열기/닫기 로직
         const openModal = () => memberModal.classList.remove('hidden');
         const closeModal = () => memberModal.classList.add('hidden');
 
         openModalBtn.addEventListener('click', openModal);
         closeModalBtn.addEventListener('click', closeModal);
-        saveModalBtn.addEventListener('click', closeModal);
         
         // 모달 배경 클릭 시 닫기
         memberModal.addEventListener('click', (e) => {
             if (e.target === memberModal) closeModal();
         });
 
-        // --- 추가된 부분: 로컬 스토리지에서 명단 불러오기 ---
+        // --- 데이터 복구 및 초기 자격 증명 설정 ---
         const savedMemberList = localStorage.getItem('gonggang_member_list');
         if (savedMemberList !== null) {
             memberListTextElement.value = savedMemberList;
         }
+        
+        // 로컬 스토리지에 저장된 값이 없으면 제공된 기본값(.co 형태)으로 입력 폼 채우기
+        supaUrlEl.value = localStorage.getItem('supa_url') || DEFAULT_SUPABASE_URL;
+        supaKeyEl.value = localStorage.getItem('supa_key') || DEFAULT_SUPABASE_KEY;
 
-        // --- 추가된 부분: 명단이 수정될 때마다 로컬 스토리지에 자동 저장 ---
+        // --- Supabase 연동 로직 ---
+        const getSupaClient = () => {
+            const url = supaUrlEl.value.trim();
+            const key = supaKeyEl.value.trim();
+            if (url && key) {
+                localStorage.setItem('supa_url', url);
+                localStorage.setItem('supa_key', key);
+                return window.supabase.createClient(url, key);
+            }
+            return null;
+        };
+
+        // Supabase에서 명단 불러오기
+        supaLoadBtn.addEventListener('click', async () => {
+            const client = getSupaClient();
+            if (!client) {
+                alert('Supabase URL과 Anon Key를 모두 입력해주세요.');
+                return;
+            }
+            
+            try {
+                supaLoadBtn.textContent = '불러오는 중...';
+                supaLoadBtn.disabled = true;
+                
+                const { data, error } = await client.from('members').select('name, gender');
+                
+                if (error) throw error;
+                
+                if (data && data.length > 0) {
+                    const text = data.map(m => `${m.name} ${m.gender}`).join('\n');
+                    memberListTextElement.value = text;
+                    localStorage.setItem('gonggang_member_list', text);
+                    alert('DB에서 명단을 성공적으로 불러왔습니다!');
+                } else {
+                    alert('DB에 저장된 명단이 없습니다. (members 테이블 확인)');
+                }
+            } catch (err) {
+                console.error('Supabase 불러오기 에러:', err);
+                alert('오류 발생: ' + err.message + '\n\n테이블 이름(members)과 RLS 정책을 확인해주세요.');
+            } finally {
+                supaLoadBtn.textContent = 'DB에서 불러오기';
+                supaLoadBtn.disabled = false;
+            }
+        });
+
+        // 모달 내 텍스트 수정 즉시 로컬 스토리지 백업
         memberListTextElement.addEventListener('input', (e) => {
             localStorage.setItem('gonggang_member_list', e.target.value);
         });
 
-        // 시간 문자열(HH:MM)을 분(minutes)으로 변환
+        // [저장 및 닫기] 버튼: 로컬스토리지 저장 + Supabase DB Upsert 동기화
+        saveModalBtn.addEventListener('click', async () => {
+            const text = memberListTextElement.value;
+            localStorage.setItem('gonggang_member_list', text);
+            
+            const client = getSupaClient();
+            if (client) {
+                const memberRegex = /([가-힣a-zA-Z]+)\s*(남|여)/g;
+                let mMatch;
+                const records = [];
+                while ((mMatch = memberRegex.exec(text)) !== null) {
+                    records.push({ name: mMatch[1], gender: mMatch[2] });
+                }
+                
+                if (records.length > 0) {
+                    saveModalBtn.textContent = 'DB 연동 저장 중...';
+                    saveModalBtn.disabled = true;
+                    try {
+                        const { error } = await client.from('members').upsert(records, { onConflict: 'name' });
+                        if (error) {
+                            console.error('Supabase 저장 에러:', error);
+                            alert('DB 동기화 중 오류가 발생했습니다.\n' + error.message);
+                        }
+                    } catch(e) {
+                        console.error(e);
+                    } finally {
+                        saveModalBtn.textContent = '저장 및 닫기';
+                        saveModalBtn.disabled = false;
+                    }
+                }
+            }
+            
+            closeModal();
+        });
+
+        // 시간 관련 함수
         const timeToMinutes = (timeStr) => {
             const [h, m] = timeStr.split(':');
             return parseInt(h, 10) * 60 + parseInt(m, 10);
         };
 
-        // 분(minutes)을 시간 문자열(HH:MM)로 변환
         const minutesToTime = (mins) => {
             const h = Math.floor(mins / 60);
             const m = mins % 60;
             return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
         };
 
-        // N명 조합(Combination) 구하는 함수
-        const getCombinations = (array, size) => {
-            const result = [];
-            const combine = (start, combo) => {
-                if (combo.length === size) {
-                    result.push(combo);
-                    return;
-                }
-                for (let i = start; i < array.length; i++) {
-                    combine(i + 1, [...combo, array[i]]);
-                }
-            };
-            combine(0, []);
-            return result;
-        };
-
-        // 그룹이 조건에 맞는지 검증하는 함수
-        const isValidGroup = (group) => {
+        // 매칭 검증 알고리즘
+        const isValidGroup = (group, minOverlap) => {
             const males = group.filter(p => p.gender === '남').length;
             const females = group.filter(p => p.gender === '여').length;
 
             if (group.length === 2) {
                 if (males === 1 && females === 1) return { valid: false };
-            } else if (group.length === 3) {
-                if (males === 2 && females === 1) return { valid: false };
+            } else if (group.length !== 2 && group.length !== 3) {
+                return { valid: false };
             }
 
-            // 모든 멤버가 공통으로 겹치는 시간(10분 이상) 찾기
             let commonTimes = group[0].times;
             for (let i = 1; i < group.length; i++) {
                 let nextCommon = [];
@@ -233,7 +334,7 @@
                     for (let b of group[i].times) {
                         let start = Math.max(a.start, b.start);
                         let end = Math.min(a.end, b.end);
-                        if (end - start >= 10) {
+                        if (end - start >= minOverlap) {
                             nextCommon.push({start, end});
                         }
                     }
@@ -243,14 +344,11 @@
             }
 
             if (commonTimes.length === 0) return { valid: false };
-
-            // 겹치는 시간 중 가장 긴 구간 선택
             let bestOverlap = commonTimes.reduce((max, t) => (t.end - t.start) > (max.end - max.start) ? t : max, commonTimes[0]);
 
             return { valid: true, overlapStart: bestOverlap.start, overlapEnd: bestOverlap.end };
         };
 
-        // 숫자 이모지 변환 (1~10)
         const getNumberEmoji = (num) => {
             const emojis = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣", "🔟"];
             return num <= 10 ? emojis[num - 1] : `[${num}]`;
@@ -265,7 +363,6 @@
             }
         };
 
-        // 텍스트 파싱 및 매칭 실행
         const handleGenerate = () => {
             showError('');
             const memberText = memberListTextElement.value;
@@ -276,7 +373,6 @@
                 return;
             }
 
-            // 1. 사전 명단 파싱 (딕셔너리 생성)
             const memberDict = {};
             const memberRegex = /([가-힣a-zA-Z]+)\s*(남|여)/g;
             let mMatch;
@@ -284,11 +380,10 @@
                 memberDict[mMatch[1]] = mMatch[2];
             }
 
-            // 2. 공강 시간 파싱
-            // 이름 단위로 여러 시간을 가질 수 있도록 맵 사용
             const peopleMap = new Map();
             const lines = inputText.split('\n');
             const missingGenders = new Set();
+            const minOverlap = parseInt(document.getElementById('minOverlap').value, 10);
             
             for (const line of lines) {
                 if (!line.trim()) continue;
@@ -336,81 +431,113 @@
             }
 
             const parsedPeople = Array.from(peopleMap.values());
-
             if (parsedPeople.length === 0) {
                 showError('형식에 맞는 데이터가 없습니다. (예: 김민정 08:30-10:00)');
                 return;
             }
 
-            // 전체 공강 시간이 적은 사람부터 우선 배치
-            const getTotalTime = (p) => p.times.reduce((sum, t) => sum + (t.end - t.start), 0);
-            let currentUnassigned = [...parsedPeople].sort((a, b) => getTotalTime(a) - getTotalTime(b));
-            const formedGroups = [];
+            // 시뮬레이션 기반 매칭 루프
+            let bestResult = { formedGroups: [], unassigned: [...parsedPeople], unassignedCount: parsedPeople.length, totalOverlap: 0 };
+            const NUM_ITERATIONS = 500;
 
-            let progress = true;
-            while (progress) {
-                progress = false;
-
-                const combs3 = getCombinations(currentUnassigned, 3);
-                const valid3 = combs3.map(c => ({ combo: c, ...isValidGroup(c) })).filter(r => r.valid);
+            for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
+                let currentUnassigned = [...parsedPeople];
                 
-                if (valid3.length > 0) {
-                    valid3.sort((a, b) => (b.overlapEnd - b.overlapStart) - (a.overlapEnd - a.overlapStart));
-                    const best = valid3[0];
-                    
-                    formedGroups.push({
-                        people: best.combo,
-                        start: best.overlapStart,
-                        end: best.overlapEnd
-                    });
-                    
-                    currentUnassigned = currentUnassigned.filter(p => !best.combo.some(member => member.id === p.id));
-                    progress = true;
-                    continue;
+                if (iter === 0) {
+                    const getTotalTime = (p) => p.times.reduce((sum, t) => sum + (t.end - t.start), 0);
+                    currentUnassigned.sort((a, b) => getTotalTime(a) - getTotalTime(b));
+                } else {
+                    for (let i = currentUnassigned.length - 1; i > 0; i--) {
+                        const j = Math.floor(Math.random() * (i + 1));
+                        [currentUnassigned[i], currentUnassigned[j]] = [currentUnassigned[j], currentUnassigned[i]];
+                    }
                 }
 
-                const combs2 = getCombinations(currentUnassigned, 2);
-                const valid2 = combs2.map(c => ({ combo: c, ...isValidGroup(c) })).filter(r => r.valid);
+                const strategy = Math.floor(Math.random() * 3);
+                let formedGroups = [];
+                let skipped = [];
+
+                while (currentUnassigned.length > 0) {
+                    let p1 = currentUnassigned.shift();
+                    let validGroups = [];
+                    
+                    for (let i = 0; i < currentUnassigned.length; i++) {
+                        let g = [p1, currentUnassigned[i]];
+                        let res = isValidGroup(g, minOverlap);
+                        if (res.valid) validGroups.push({ combo: g, size: 2, ...res });
+                    }
+                    
+                    for (let i = 0; i < currentUnassigned.length; i++) {
+                        for (let j = i + 1; j < currentUnassigned.length; j++) {
+                            let g = [p1, currentUnassigned[i], currentUnassigned[j]];
+                            let res = isValidGroup(g, minOverlap);
+                            if (res.valid) validGroups.push({ combo: g, size: 3, ...res });
+                        }
+                    }
+                    
+                    if (validGroups.length > 0) {
+                        validGroups.forEach(g => {
+                            let overlapLen = g.overlapEnd - g.overlapStart;
+                            if (strategy === 0) {
+                                g.score = (g.size * 1000) + overlapLen;
+                            } else if (strategy === 1) {
+                                g.score = (g.size === 2 ? 1000 : 0) + overlapLen;
+                            } else {
+                                g.score = (Math.random() * 1000) + overlapLen;
+                            }
+                        });
+                        
+                        validGroups.sort((a, b) => b.score - a.score);
+                        let best = validGroups[0];
+                        
+                        formedGroups.push({
+                            people: best.combo,
+                            start: best.overlapStart,
+                            end: best.overlapEnd
+                        });
+                        
+                        let assignedIds = best.combo.map(m => m.id);
+                        currentUnassigned = currentUnassigned.filter(u => !assignedIds.includes(u.id));
+                    } else {
+                        skipped.push(p1);
+                    }
+                }
                 
-                if (valid2.length > 0) {
-                    valid2.sort((a, b) => (b.overlapEnd - b.overlapStart) - (a.overlapEnd - a.overlapStart));
-                    const best = valid2[0];
-                    
-                    formedGroups.push({
-                        people: best.combo,
-                        start: best.overlapStart,
-                        end: best.overlapEnd
-                    });
-                    
-                    currentUnassigned = currentUnassigned.filter(p => !best.combo.some(member => member.id === p.id));
-                    progress = true;
-                    continue;
+                let unassignedCount = skipped.length;
+                let totalOverlap = formedGroups.reduce((sum, g) => sum + (g.end - g.start), 0);
+                
+                if (unassignedCount < bestResult.unassignedCount || 
+                   (unassignedCount === bestResult.unassignedCount && totalOverlap > bestResult.totalOverlap)) {
+                    bestResult = { 
+                        formedGroups: formedGroups, 
+                        unassigned: skipped,
+                        unassignedCount: unassignedCount, 
+                        totalOverlap: totalOverlap 
+                    };
                 }
             }
+
+            const formedGroups = bestResult.formedGroups;
+            let currentUnassigned = bestResult.unassigned;
 
             let result = `🔥🏃🏻‍♂️공강전도 팀구성🏃🏻‍♀️🔥\n\n`;
             result += `복 많이 받으세요☺️\n`;
             result += `공강전도 팀구성입니다~!!🫶🏻\n\n`;
 
             formedGroups.sort((a, b) => a.start - b.start);
-
             formedGroups.forEach((group, index) => {
                 const emoji = getNumberEmoji(index + 1);
                 const timeStr = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
                 const names = group.people.map(p => p.name).join(' ');
-                
                 result += `${emoji} ${timeStr}\n${names}\n`;
             });
 
             result += `\n* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
-
             outputTextElement.value = result;
 
-            // 버튼 상태 업데이트
             copyBtn.disabled = false;
             copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200";
 
-            // 미할당 인원 렌더링
             if (currentUnassigned.length > 0) {
                 unassignedTitle.textContent = `⚠️ 편성되지 못한 인원 (${currentUnassigned.length}명)`;
                 unassignedList.innerHTML = currentUnassigned.map(p => 
@@ -425,7 +552,7 @@
             }
         };
 
-        // 클립보드 복사
+        // 클립보드 복사 함수
         const handleCopy = () => {
             const outputText = outputTextElement.value;
             if (!outputText) return;
@@ -467,14 +594,13 @@
             document.body.removeChild(textArea);
         };
 
-        // 테스트 데이터 삽입
         const insertTestData = () => {
             const memberData = `이서윤 여\n오유리 여\n김민정 여\n송채이 여\n최혜민 여\n강은서 여\n박지훈 남\n최동현 남\n김철수 남\n이영희 여\n홍길동 남`;
             const testData = `이서윤 08:30-10:00, 13:00-14:00\n오유리 08:00-09:30\n김민정 08:30-09:00\n송채이 08:30-09:30\n최혜민 08:00-10:30\n강은서 08:30-09:30\n박지훈 11:00-13:00\n최동현 11:30-14:00\n김철수 11:00-12:30\n이영희 11:00-12:00\n홍길동 08:30-09:30\n홍길동 15:00-16:00`;
             
             memberListTextElement.value = memberData;
             inputTextElement.value = testData;
-            localStorage.setItem('gonggang_member_list', memberData); // 테스트 데이터도 로컬 스토리지에 반영
+            localStorage.setItem('gonggang_member_list', memberData);
         };
 
         // 이벤트 리스너 등록
