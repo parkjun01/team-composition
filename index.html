@@ -82,7 +82,7 @@
                     <button
                         id="copyBtn"
                         disabled
-                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-400 cursor-not-allowed"
+                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
                     >
                         <span id="copyIcon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -326,7 +326,6 @@
                 return { valid: false };
             }
 
-            // 한 사람이 여러 조에 들어가므로, 여기서는 각각의 단일 시간대 객체(.time)끼리 비교함
             let start = group[0].time.start;
             let end = group[0].time.end;
 
@@ -336,7 +335,6 @@
                 if (end - start < minOverlap) return { valid: false };
             }
 
-            // 같은 시간대 안에 동일 인물이 중복으로 들어가는 현상 완전 차단
             const nameSet = new Set(group.map(p => p.name));
             if (nameSet.size !== group.length) return { valid: false };
 
@@ -374,7 +372,6 @@
                 memberDict[mMatch[1]] = mMatch[2];
             }
 
-            // 개별 시간 단위로 쪼갠 전체 데이터 풀 생성 (한 사람이 여러 행으로 분리됨)
             const timeUnitPool = [];
             const lines = inputText.split('\n');
             const missingGenders = new Set();
@@ -419,14 +416,12 @@
                 return;
             }
 
-            // 시뮬레이션 매칭 알고리즘 시작
             let bestResult = { formedGroups: [], unassigned: [...timeUnitPool], unassignedCount: timeUnitPool.length, totalOverlap: 0, mixedGroupCount: 0 };
             const NUM_ITERATIONS = 500;
 
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
                 let currentPool = [...timeUnitPool];
                 
-                // 셔플
                 if (iter === 0) {
                     currentPool.sort((a, b) => (a.time.end - a.time.start) - (b.time.end - b.time.start));
                 } else {
@@ -443,14 +438,12 @@
                     let p1 = currentPool.shift();
                     let validGroups = [];
                     
-                    // 2인조 후보 탐색
                     for (let i = 0; i < currentPool.length; i++) {
                         let g = [p1, currentPool[i]];
                         let res = isValidGroup(g, minOverlap);
                         if (res.valid) validGroups.push({ combo: g, size: 2, ...res });
                     }
                     
-                    // 3인조 후보 탐색
                     for (let i = 0; i < currentPool.length; i++) {
                         for (let j = i + 1; j < currentPool.length; j++) {
                             let g = [p1, currentPool[i], currentPool[j]];
@@ -467,7 +460,7 @@
                             let isMixed = (males > 0 && females > 0);
 
                             if (g.size === 3 && isMixed) {
-                                g.score = 50000 + overlapLen; // 3인 혼성 최우선
+                                g.score = 50000 + overlapLen;
                             } else if (g.size === 3) {
                                 g.score = 20000 + overlapLen;
                             } else {
@@ -492,7 +485,6 @@
                     }
                 }
 
-                // 2단계 구제: 매칭 안 된 시간 단위 데이터끼리 동성(남남/여여) 2인조 강제 편성
                 if (skipped.length >= 2) {
                     let stillSkipped = [];
                     while (skipped.length > 0) {
@@ -545,7 +537,6 @@
 
             formedGroups.sort((a, b) => a.start - b.start);
 
-            // 시간대 그룹화 및 양식 출력 로직
             const timeGroups = new Map();
             formedGroups.forEach(group => {
                 const timeKey = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
@@ -555,27 +546,26 @@
                 timeGroups.get(timeKey).push(group);
             });
 
-            let globalTeamIndex = 1;
+            // 🌟 시간대 인덱스를 최상단에 배치하고 한 줄에 조를 구성하도록 커스텀 양식 출력 적용 🌟
+            let globalTimeIndex = 1;
             timeGroups.forEach((groups, timeStr) => {
-                result += `⏱️ ${timeStr}\n`;
+                const emoji = getNumberEmoji(globalTimeIndex);
+                result += `${emoji} ${timeStr}\n`;
                 groups.forEach(group => {
-                    const emoji = getNumberEmoji(globalTeamIndex);
                     const names = group.people.map(p => p.name).join(' ');
-                    result += `${emoji} ${names}\n`;
-                    globalTeamIndex++;
+                    result += `${names}\n`;
                 });
                 result += `\n`;
+                globalTimeIndex++;
             });
 
-            result += `* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
+            result = result.trim() + `\n\n* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
             outputTextElement.value = result;
 
             copyBtn.disabled = false;
             copyBtn.className = "text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200";
 
-            // 미할당 렌더링 방식 조정 (이름과 실패한 시간대 매칭)
             if (currentUnassigned.length > 0) {
-                // 한 사람이 중복해서 리스트에 뜨지 않도록 유니크 처리하되 어떤 시간대가 실패했는지 표시
                 unassignedTitle.textContent = `⚠️ 편성되지 못한 인원 (${currentUnassigned.length}건)`;
                 unassignedList.innerHTML = currentUnassigned.map(p => 
                     `<span class="text-xs bg-white px-2 py-1 rounded border border-red-200 text-red-600">
@@ -589,7 +579,6 @@
             }
         };
 
-        // 클립보드 복사 함수
         const handleCopy = () => {
             const outputText = outputTextElement.value;
             if (!outputText) return;
@@ -640,7 +629,6 @@
             localStorage.setItem('gonggang_member_list', memberData);
         };
 
-        // 이벤트 리스너 등록
         generateBtn.addEventListener('click', handleGenerate);
         copyBtn.addEventListener('click', handleCopy);
         testDataBtn.addEventListener('click', insertTestData);
