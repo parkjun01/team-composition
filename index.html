@@ -112,6 +112,7 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다. (최대한 많은 인원을 묶기 위해 3명을 우선 찾습니다)</li>
                 <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (남2+여1 등 3명 조는 모든 혼성 조합을 허용합니다)</li>
+                <li><strong>혼성 팀(3인조) 결성</strong>을 1순위 가중치로 설정하여 매칭 효율을 극대화했습니다.</li>
                 <li>참여자들의 시간이 서로 <strong>겹치는 구간</strong>을 찾아 자동으로 교집합 시간에 맞추어 배정합니다.</li>
             </ul>
         </div>
@@ -321,6 +322,7 @@
             const males = group.filter(p => p.gender === '남').length;
             const females = group.filter(p => p.gender === '여').length;
 
+            // 2인조일 때 혼성(남1+여1) 절대 불가 조건 엄격 적용
             if (group.length === 2) {
                 if (males === 1 && females === 1) return { valid: false };
             } else if (group.length !== 2 && group.length !== 3) {
@@ -436,8 +438,8 @@
                 return;
             }
 
-            // 시뮬레이션 기반 매칭 루프
-            let bestResult = { formedGroups: [], unassigned: [...parsedPeople], unassignedCount: parsedPeople.length, totalOverlap: 0 };
+            // 시뮬레이션 기반 매칭 루프 (혼성 팀 최우선 + 최대 매칭)
+            let bestResult = { formedGroups: [], unassigned: [...parsedPeople], unassignedCount: parsedPeople.length, totalOverlap: 0, mixedGroupCount: 0 };
             const NUM_ITERATIONS = 500;
 
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
@@ -453,7 +455,6 @@
                     }
                 }
 
-                const strategy = Math.floor(Math.random() * 3);
                 let formedGroups = [];
                 let skipped = [];
 
@@ -461,12 +462,14 @@
                     let p1 = currentUnassigned.shift();
                     let validGroups = [];
                     
+                    // 1. 2인조 후보 탐색 (남남, 여여만 허용됨)
                     for (let i = 0; i < currentUnassigned.length; i++) {
                         let g = [p1, currentUnassigned[i]];
                         let res = isValidGroup(g, minOverlap);
                         if (res.valid) validGroups.push({ combo: g, size: 2, ...res });
                     }
                     
+                    // 2. 3인조 후보 탐색 (남남남, 여여여, 혼성 모두 포함)
                     for (let i = 0; i < currentUnassigned.length; i++) {
                         for (let j = i + 1; j < currentUnassigned.length; j++) {
                             let g = [p1, currentUnassigned[i], currentUnassigned[j]];
@@ -478,12 +481,19 @@
                     if (validGroups.length > 0) {
                         validGroups.forEach(g => {
                             let overlapLen = g.overlapEnd - g.overlapStart;
-                            if (strategy === 0) {
-                                g.score = (g.size * 1000) + overlapLen;
-                            } else if (strategy === 1) {
-                                g.score = (g.size === 2 ? 1000 : 0) + overlapLen;
+                            let males = g.combo.filter(p => p.gender === '남').length;
+                            let females = g.combo.filter(p => p.gender === '여').length;
+                            let isMixed = (males > 0 && females > 0);
+
+                            if (g.size === 3 && isMixed) {
+                                // [1순위] 3인 혼성 팀 (남2여1, 남1여2) -> 압도적인 최우선 점수 부여
+                                g.score = 50000 + overlapLen;
+                            } else if (g.size === 3) {
+                                // [2순위] 3인 단일성별 팀 (남남남, 여여여)
+                                g.score = 20000 + overlapLen;
                             } else {
-                                g.score = (Math.random() * 1000) + overlapLen;
+                                // [3순위] 2인 단일성별 팀 (남남, 여여)
+                                g.score = 10000 + overlapLen;
                             }
                         });
                         
@@ -493,7 +503,8 @@
                         formedGroups.push({
                             people: best.combo,
                             start: best.overlapStart,
-                            end: best.overlapEnd
+                            end: best.overlapEnd,
+                            isMixed: (best.combo.filter(p => p.gender === '남').length > 0 && best.combo.filter(p => p.gender === '여').length > 0)
                         });
                         
                         let assignedIds = best.combo.map(m => m.id);
@@ -505,14 +516,18 @@
                 
                 let unassignedCount = skipped.length;
                 let totalOverlap = formedGroups.reduce((sum, g) => sum + (g.end - g.start), 0);
+                let mixedGroupCount = formedGroups.filter(g => g.isMixed).length;
                 
+                // 최고 결과 조건 체인 (낙오자 최소화 -> 혼성 팀 최대화 -> 교집합 시간 최대화)
                 if (unassignedCount < bestResult.unassignedCount || 
-                   (unassignedCount === bestResult.unassignedCount && totalOverlap > bestResult.totalOverlap)) {
+                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
+                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && totalOverlap > bestResult.totalOverlap)) {
                     bestResult = { 
                         formedGroups: formedGroups, 
                         unassigned: skipped,
                         unassignedCount: unassignedCount, 
-                        totalOverlap: totalOverlap 
+                        totalOverlap: totalOverlap,
+                        mixedGroupCount: mixedGroupCount
                     };
                 }
             }
