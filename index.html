@@ -82,7 +82,7 @@
                     <button
                         id="copyBtn"
                         disabled
-                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-400 cursor-not-allowed"
+                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-700 hover:bg-gray-200"
                     >
                         <span id="copyIcon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -110,10 +110,10 @@
         <div class="bg-white/60 p-5 rounded-xl text-sm text-gray-600 max-w-3xl mx-auto">
             <p class="font-bold text-gray-800 mb-2">💡 편성 규칙 적용 내역:</p>
             <ul class="list-disc pl-5 space-y-1">
-                <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다. (최대한 많은 인원을 묶기 위해 3명을 우선 찾습니다)</li>
-                <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (남2+여1 등 3명 조는 모든 혼성 조합을 허용합니다)</li>
-                <li><strong>혼성 팀(3인조) 결성</strong>을 1순위 가중치로 설정하여 매칭 효율을 극대화했습니다.</li>
-                <li>참여자들의 시간이 서로 <strong>겹치는 구간</strong>을 찾아 자동으로 교집합 시간에 맞추어 배정합니다.</li>
+                <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다.</li>
+                <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (2인조는 오직 동성팀만 결성됩니다)</li>
+                <li><strong>혼성 팀(3인조) 결성</strong>을 최우선으로 매칭 시뮬레이션을 진행합니다.</li>
+                <li><strong>최종 구제 기능 추가:</strong> 낙오자를 없애기 위해 마지막에 남은 인원들끼리 동성(남남/여여) 2인조를 적극적으로 추가 편성합니다.</li>
             </ul>
         </div>
         
@@ -231,7 +231,7 @@
             return null;
         };
 
-        // Supabase에서 명단 불러오기 (테이블명을 members2로 변경)
+        // Supabase에서 명단 불러오기
         supaLoadBtn.addEventListener('click', async () => {
             const client = getSupaClient();
             if (!client) {
@@ -269,7 +269,7 @@
             localStorage.setItem('gonggang_member_list', e.target.value);
         });
 
-        // [저장 및 닫기] 버튼 (테이블명을 members2로 변경 및 name 기준 충돌 처리 적용)
+        // [저장 및 닫기] 버튼
         saveModalBtn.addEventListener('click', async () => {
             const text = memberListTextElement.value;
             localStorage.setItem('gonggang_member_list', text);
@@ -506,6 +506,35 @@
                         skipped.push(p1);
                     }
                 }
+
+                // --- 🌟 [2단계 쥐어짜기] 남겨진 인원들 간에 동성(남남/여여) 2인팀 결성 시도 ---
+                if (skipped.length >= 2) {
+                    let stillSkipped = [];
+                    while (skipped.length > 0) {
+                        let p1 = skipped.shift();
+                        let foundPair = false;
+                        
+                        for (let i = 0; i < skipped.length; i++) {
+                            let g = [p1, skipped[i]];
+                            let res = isValidGroup(g, minOverlap); // 남1+여1은 이 함수 내부에서 자동 차단됨
+                            if (res.valid) {
+                                formedGroups.push({
+                                    people: g,
+                                    start: res.overlapStart,
+                                    end: res.overlapEnd,
+                                    isMixed: false
+                                });
+                                skipped.splice(i, 1);
+                                foundPair = true;
+                                break;
+                            }
+                        }
+                        if (!foundPair) {
+                            stillSkipped.push(p1);
+                        }
+                    }
+                    skipped = stillSkipped;
+                }
                 
                 let unassignedCount = skipped.length;
                 let totalOverlap = formedGroups.reduce((sum, g) => sum + (g.end - g.start), 0);
@@ -531,15 +560,33 @@
             result += `복 많이 받으세요☺️\n`;
             result += `공강전도 팀구성입니다~!!🫶🏻\n\n`;
 
+            // 시간순 정렬
             formedGroups.sort((a, b) => a.start - b.start);
-            formedGroups.forEach((group, index) => {
-                const emoji = getNumberEmoji(index + 1);
-                const timeStr = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
-                const names = group.people.map(p => p.name).join(' ');
-                result += `${emoji} ${timeStr}\n${names}\n`;
+
+            // 시간대를 key로 하여 그룹화 맵 구성
+            const timeGroups = new Map();
+            formedGroups.forEach(group => {
+                const timeKey = `${minutesToTime(group.start)}-${minutesToTime(group.end)}`;
+                if (!timeGroups.has(timeKey)) {
+                    timeGroups.set(timeKey, []);
+                }
+                timeGroups.get(timeKey).push(group);
             });
 
-            result += `\n* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
+            // 시간대별로 순회하며 결과 문자열 생성
+            let globalTeamIndex = 1;
+            timeGroups.forEach((groups, timeStr) => {
+                result += `⏱️ ${timeStr}\n`;
+                groups.forEach(group => {
+                    const emoji = getNumberEmoji(globalTeamIndex);
+                    const names = group.people.map(p => p.name).join(' ');
+                    result += `${emoji} ${names}\n`;
+                    globalTeamIndex++;
+                });
+                result += `\n`;
+            });
+
+            result += `* 일정이 바뀌어 보고된 공강전도 일정에 참여가 어려운 경우 즉시 각 동아리 임원진께 보고해주시면 감사하겠습니다:)`;
             outputTextElement.value = result;
 
             copyBtn.disabled = false;
