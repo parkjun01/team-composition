@@ -28,10 +28,6 @@
                             <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="M15 2H9a1 1 0 0 0-1 1v2a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V3a1 1 0 0 0-1-1Z"/></svg>
                             사전 명단 설정
                         </button>
-                        <button id="testDataBtn" class="text-sm text-orange-500 hover:text-orange-700 flex items-center gap-1 bg-orange-50 px-3 py-1 rounded-full transition-colors shadow-sm">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-                            테스트 데이터
-                        </button>
                     </div>
                 </div>
 
@@ -183,7 +179,6 @@
         const copyBtn = document.getElementById('copyBtn');
         const copyIcon = document.getElementById('copyIcon');
         const copyText = document.getElementById('copyText');
-        const testDataBtn = document.getElementById('testDataBtn');
         const unassignedContainer = document.getElementById('unassignedContainer');
         const unassignedTitle = document.getElementById('unassignedTitle');
         const unassignedList = document.getElementById('unassignedList');
@@ -423,7 +418,6 @@
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
                 let currentPool = [...timeUnitPool];
                 
-                // 🌟 [수정 포인트] 매번 첫 루프부터 100% 랜덤하게 셔플하도록 변경하여 클릭할 때마다 결과 변화 보장
                 for (let i = currentPool.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
                     [currentPool[i], currentPool[j]] = [currentPool[j], currentPool[i]];
@@ -576,6 +570,7 @@
             }
         };
 
+        // 클립보드 복사 함수
         const handleCopy = () => {
             const outputText = outputTextElement.value;
             if (!outputText) return;
@@ -617,18 +612,8 @@
             document.body.removeChild(textArea);
         };
 
-        const insertTestData = () => {
-            const memberData = `이서윤 여\n오유리 여\n김민정 여\n송채이 여\n최혜민 여\n강은서 여\n박지훈 남\n최동현 남\n김철수 남\n이영희 여\n홍길동 남`;
-            const testData = `이서윤 08:30-10:00, 13:00-14:00\n오유리 08:00-09:30\n김민정 08:30-09:00\n송채이 08:30-09:30\n최혜민 08:00-10:30\n강은서 08:30-09:30\n박지훈 11:00-13:00\n최동현 11:30-14:00\n김철수 11:00-12:30\n이영희 11:00-12:00\n홍길동 08:30-09:30\n홍길동 15:00-16:00`;
-            
-            memberListTextElement.value = memberData;
-            inputTextElement.value = testData;
-            localStorage.setItem('gonggang_member_list', memberData);
-        };
-
         generateBtn.addEventListener('click', handleGenerate);
         copyBtn.addEventListener('click', handleCopy);
-        testDataBtn.addEventListener('click', insertTestData);
     </script>
 </body>
 </html>
