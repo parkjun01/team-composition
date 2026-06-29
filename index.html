@@ -416,19 +416,17 @@
                 return;
             }
 
+            // 시뮬레이션 매칭 알고리즘 시작
             let bestResult = { formedGroups: [], unassigned: [...timeUnitPool], unassignedCount: timeUnitPool.length, totalOverlap: 0, mixedGroupCount: 0 };
             const NUM_ITERATIONS = 500;
 
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
                 let currentPool = [...timeUnitPool];
                 
-                if (iter === 0) {
-                    currentPool.sort((a, b) => (a.time.end - a.time.start) - (b.time.end - b.time.start));
-                } else {
-                    for (let i = currentPool.length - 1; i > 0; i--) {
-                        const j = Math.floor(Math.random() * (i + 1));
-                        [currentPool[i], currentPool[j]] = [currentPool[j], currentPool[i]];
-                    }
+                // 🌟 [수정 포인트] 매번 첫 루프부터 100% 랜덤하게 셔플하도록 변경하여 클릭할 때마다 결과 변화 보장
+                for (let i = currentPool.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [currentPool[i], currentPool[j]] = [currentPool[j], currentPool[i]];
                 }
 
                 let formedGroups = [];
@@ -546,7 +544,6 @@
                 timeGroups.get(timeKey).push(group);
             });
 
-            // 🌟 시간대 인덱스를 최상단에 배치하고 한 줄에 조를 구성하도록 커스텀 양식 출력 적용 🌟
             let globalTimeIndex = 1;
             timeGroups.forEach((groups, timeStr) => {
                 const emoji = getNumberEmoji(globalTimeIndex);
