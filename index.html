@@ -82,7 +82,7 @@
                     <button
                         id="copyBtn"
                         disabled
-                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-50 text-gray-400 cursor-not-allowed"
+                        class="text-sm px-4 py-2 rounded-full font-medium flex items-center gap-2 transition-all bg-gray-100 text-gray-400 cursor-not-allowed"
                     >
                         <span id="copyIcon">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
@@ -140,7 +140,7 @@
                         <input id="supaUrl" type="text" placeholder="Supabase Project URL" class="w-full p-2 border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500 text-xs font-mono">
                         <input id="supaKey" type="password" placeholder="Supabase Anon Key" class="w-full p-2 border border-gray-300 rounded outline-none focus:ring-1 focus:ring-blue-500 text-xs font-mono">
                         <div class="flex justify-between items-center mt-2 pt-1">
-                            <p class="text-[10px] text-gray-500 w-2/3 leading-tight">※ <code>members</code> 테이블 필요<br/>(컬럼: <code>name</code>(PK), <code>gender</code>)</p>
+                            <p class="text-[10px] text-gray-500 w-2/3 leading-tight">※ <code>members2</code> 테이블 필요<br/>(컬럼: <code>name</code>(PK), <code>gender</code>)</p>
                             <button id="supaLoadBtn" class="bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-bold py-1.5 px-3 rounded text-xs transition-colors shadow-sm">
                                 DB에서 불러오기
                             </button>
@@ -216,7 +216,6 @@
             memberListTextElement.value = savedMemberList;
         }
         
-        // 로컬 스토리지에 저장된 값이 없으면 제공된 기본값(.co 형태)으로 입력 폼 채우기
         supaUrlEl.value = localStorage.getItem('supa_url') || DEFAULT_SUPABASE_URL;
         supaKeyEl.value = localStorage.getItem('supa_key') || DEFAULT_SUPABASE_KEY;
 
@@ -232,7 +231,7 @@
             return null;
         };
 
-        // Supabase에서 명단 불러오기
+        // Supabase에서 명단 불러오기 (테이블명을 members2로 변경)
         supaLoadBtn.addEventListener('click', async () => {
             const client = getSupaClient();
             if (!client) {
@@ -244,7 +243,7 @@
                 supaLoadBtn.textContent = '불러오는 중...';
                 supaLoadBtn.disabled = true;
                 
-                const { data, error } = await client.from('members').select('name, gender');
+                const { data, error } = await client.from('members2').select('name, gender');
                 
                 if (error) throw error;
                 
@@ -254,11 +253,11 @@
                     localStorage.setItem('gonggang_member_list', text);
                     alert('DB에서 명단을 성공적으로 불러왔습니다!');
                 } else {
-                    alert('DB에 저장된 명단이 없습니다. (members 테이블 확인)');
+                    alert('DB에 저장된 명단이 없습니다. (members2 테이블 확인)');
                 }
             } catch (err) {
                 console.error('Supabase 불러오기 에러:', err);
-                alert('오류 발생: ' + err.message + '\n\n테이블 이름(members)과 RLS 정책을 확인해주세요.');
+                alert('오류 발생: ' + err.message + '\n\n테이블 이름(members2)과 RLS 정책을 확인해주세요.');
             } finally {
                 supaLoadBtn.textContent = 'DB에서 불러오기';
                 supaLoadBtn.disabled = false;
@@ -270,7 +269,7 @@
             localStorage.setItem('gonggang_member_list', e.target.value);
         });
 
-        // [저장 및 닫기] 버튼: 로컬스토리지 저장 + Supabase DB Upsert 동기화
+        // [저장 및 닫기] 버튼 (테이블명을 members2로 변경 및 name 기준 충돌 처리 적용)
         saveModalBtn.addEventListener('click', async () => {
             const text = memberListTextElement.value;
             localStorage.setItem('gonggang_member_list', text);
@@ -288,7 +287,7 @@
                     saveModalBtn.textContent = 'DB 연동 저장 중...';
                     saveModalBtn.disabled = true;
                     try {
-                        const { error } = await client.from('members').upsert(records, { onConflict: 'name' });
+                        const { error } = await client.from('members2').upsert(records, { onConflict: 'name' });
                         if (error) {
                             console.error('Supabase 저장 에러:', error);
                             alert('DB 동기화 중 오류가 발생했습니다.\n' + error.message);
@@ -322,7 +321,6 @@
             const males = group.filter(p => p.gender === '남').length;
             const females = group.filter(p => p.gender === '여').length;
 
-            // 2인조일 때 혼성(남1+여1) 절대 불가 조건 엄격 적용
             if (group.length === 2) {
                 if (males === 1 && females === 1) return { valid: false };
             } else if (group.length !== 2 && group.length !== 3) {
@@ -462,14 +460,12 @@
                     let p1 = currentUnassigned.shift();
                     let validGroups = [];
                     
-                    // 1. 2인조 후보 탐색 (남남, 여여만 허용됨)
                     for (let i = 0; i < currentUnassigned.length; i++) {
                         let g = [p1, currentUnassigned[i]];
                         let res = isValidGroup(g, minOverlap);
                         if (res.valid) validGroups.push({ combo: g, size: 2, ...res });
                     }
                     
-                    // 2. 3인조 후보 탐색 (남남남, 여여여, 혼성 모두 포함)
                     for (let i = 0; i < currentUnassigned.length; i++) {
                         for (let j = i + 1; j < currentUnassigned.length; j++) {
                             let g = [p1, currentUnassigned[i], currentUnassigned[j]];
@@ -486,13 +482,10 @@
                             let isMixed = (males > 0 && females > 0);
 
                             if (g.size === 3 && isMixed) {
-                                // [1순위] 3인 혼성 팀 (남2여1, 남1여2) -> 압도적인 최우선 점수 부여
                                 g.score = 50000 + overlapLen;
                             } else if (g.size === 3) {
-                                // [2순위] 3인 단일성별 팀 (남남남, 여여여)
                                 g.score = 20000 + overlapLen;
                             } else {
-                                // [3순위] 2인 단일성별 팀 (남남, 여여)
                                 g.score = 10000 + overlapLen;
                             }
                         });
@@ -518,7 +511,6 @@
                 let totalOverlap = formedGroups.reduce((sum, g) => sum + (g.end - g.start), 0);
                 let mixedGroupCount = formedGroups.filter(g => g.isMixed).length;
                 
-                // 최고 결과 조건 체인 (낙오자 최소화 -> 혼성 팀 최대화 -> 교집합 시간 최대화)
                 if (unassignedCount < bestResult.unassignedCount || 
                    (unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
                    (unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && totalOverlap > bestResult.totalOverlap)) {
