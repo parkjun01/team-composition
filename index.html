@@ -108,7 +108,7 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다.</li>
                 <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (2인조는 오직 동성팀만 결성됩니다)</li>
-                <li><strong>혼성 팀(3인조) 결성</strong>을 최우선 가중치로 설정합니다.</li>
+                <li><strong>남녀 조합 규칙을 지키면서 팀 수를 최대화</strong>하는 것을 최우선으로 합니다. (2인팀을 우선 결성하고, 혼성 3인팀은 낙오자를 줄이기 위한 후순위 가중치로만 사용)</li>
                 <li><strong>시간대가 다르면 한 사람이 여러 조에 포함될 수 있습니다.</strong> 제출한 공강 시간들을 개별 기회로 분리하여 최대한 많은 매칭을 만들어냅니다.</li>
                 <li>마지막에 남은 자투리 인원들은 <strong>동성(남남/여여) 2인팀</strong>으로 추가 구제 편성하여 낙오자를 최소화합니다.</li>
             </ul>
@@ -412,11 +412,13 @@
             }
 
             // 시뮬레이션 매칭 알고리즘 시작
-            let bestResult = { formedGroups: [], unassigned: [...timeUnitPool], unassignedCount: timeUnitPool.length, totalOverlap: 0, mixedGroupCount: 0 };
+            let bestResult = { formedGroups: [], unassigned: [...timeUnitPool], teamCount: 0, unassignedCount: timeUnitPool.length, totalOverlap: 0, mixedGroupCount: 0 };
             const NUM_ITERATIONS = 500;
 
             for (let iter = 0; iter < NUM_ITERATIONS; iter++) {
                 let currentPool = [...timeUnitPool];
+                // 짝수 회차: 2인팀 우선(팀 수 최대화) / 홀수 회차: 3인팀 우선(낙오자 최소화)
+                const preferPairs = (iter % 2 === 0);
                 
                 for (let i = currentPool.length - 1; i > 0; i--) {
                     const j = Math.floor(Math.random() * (i + 1));
@@ -451,12 +453,14 @@
                             let females = g.combo.filter(p => p.gender === '여').length;
                             let isMixed = (males > 0 && females > 0);
 
-                            if (g.size === 3 && isMixed) {
-                                g.score = 50000 + overlapLen;
-                            } else if (g.size === 3) {
-                                g.score = 20000 + overlapLen;
+                            if (g.size === 2) {
+                                // 2인팀: 같은 인원으로 더 많은 팀을 만들 수 있어 팀 수 최대화에 유리
+                                g.score = (preferPairs ? 40000 : 15000) + overlapLen;
+                            } else if (g.size === 3 && isMixed) {
+                                g.score = (preferPairs ? 20000 : 45000) + overlapLen;
                             } else {
-                                g.score = 10000 + overlapLen;
+                                // 3인 동성팀
+                                g.score = (preferPairs ? 15000 : 40000) + overlapLen;
                             }
                         });
                         
@@ -507,13 +511,18 @@
                 let totalOverlap = formedGroups.reduce((sum, g) => sum + (g.end - g.start), 0);
                 let mixedGroupCount = formedGroups.filter(g => g.isMixed).length;
                 
-                if (unassignedCount < bestResult.unassignedCount || 
-                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
-                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && totalOverlap > bestResult.totalOverlap)) {
-                    bestResult = { 
-                        formedGroups: formedGroups, 
+                let teamCount = formedGroups.length;
+
+                // 1순위: 팀 수 최대화 → 2순위: 낙오자 최소화 → 3순위: 혼성팀 수 → 4순위: 총 교집합 시간
+                if (teamCount > bestResult.teamCount ||
+                   (teamCount === bestResult.teamCount && unassignedCount < bestResult.unassignedCount) ||
+                   (teamCount === bestResult.teamCount && unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
+                   (teamCount === bestResult.teamCount && unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && totalOverlap > bestResult.totalOverlap)) {
+                    bestResult = {
+                        formedGroups: formedGroups,
                         unassigned: skipped,
-                        unassignedCount: unassignedCount, 
+                        teamCount: teamCount,
+                        unassignedCount: unassignedCount,
                         totalOverlap: totalOverlap,
                         mixedGroupCount: mixedGroupCount
                     };
