@@ -108,8 +108,8 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다.</li>
                 <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (2인조는 오직 동성팀만 결성됩니다)</li>
-                <li><strong>남녀 조합 규칙을 지키면서 팀 수를 최대화</strong>하는 것을 최우선으로 합니다. (2인팀을 우선 결성하고, 혼성 3인팀은 낙오자를 줄이기 위한 후순위 가중치로만 사용)</li>
-                <li><strong>시간대가 다르면 한 사람이 여러 조에 포함될 수 있습니다.</strong> 제출한 공강 시간들을 개별 기회로 분리하여 최대한 많은 매칭을 만들어냅니다.</li>
+                <li><strong>남녀 조합 규칙을 지키면서 팀을 최대한 많이</strong> 만드는 것이 1순위입니다. 혼성팀이냐 아니냐를 그 자체로 우선하지 않고, <strong>더 많은 팀이 나오는 쪽</strong>을 택합니다. (팀 수·낙오자가 같을 때만 혼성팀 수를 참고)</li>
+                <li><strong>넓게 적은 공강 하나도 자동으로 쪼개집니다.</strong> 예를 들어 15:00-18:00을 적으면 15:00-16:00 팀에 배정된 뒤 남는 16:00-18:00이 다시 매칭에 투입되어 다른 팀에도 들어갈 수 있습니다. (남는 시간이 최소 교집합 시간 이상일 때만, 같은 사람들끼리 중복 팀은 안 만듦)</li>
                 <li>마지막에 남은 자투리 인원들은 <strong>동성(남남/여여) 2인팀</strong>으로 추가 구제 편성하여 낙오자를 최소화합니다.</li>
             </ul>
         </div>
@@ -427,6 +427,8 @@
 
                 let formedGroups = [];
                 let skipped = [];
+                let formedSignatures = new Set(); // 이미 만들어진 팀의 멤버 조합 (같은 사람들끼리 중복 팀 방지)
+                const sigOf = (combo) => combo.map(p => p.name).slice().sort().join('|');
 
                 while (currentPool.length > 0) {
                     let p1 = currentPool.shift();
@@ -446,6 +448,9 @@
                         }
                     }
                     
+                    // 같은 멤버 조합으로 이미 팀이 만들어졌다면 제외 (자투리끼리 같은 사람 재매칭 방지)
+                    validGroups = validGroups.filter(g => !formedSignatures.has(sigOf(g.combo)));
+
                     if (validGroups.length > 0) {
                         validGroups.forEach(g => {
                             let overlapLen = g.overlapEnd - g.overlapStart;
@@ -473,9 +478,27 @@
                             end: best.overlapEnd,
                             isMixed: (best.combo.filter(p => p.gender === '남').length > 0 && best.combo.filter(p => p.gender === '여').length > 0)
                         });
-                        
+                        formedSignatures.add(sigOf(best.combo));
+
                         let assignedIds = best.combo.map(m => m.id);
                         currentPool = currentPool.filter(u => !assignedIds.includes(u.id));
+
+                        // 넓게 적은 공강이 팀에 쓰이고 남은 앞/뒤 자투리 시간을 다시 매칭 풀에 넣어
+                        // 한 사람이 여러 팀에 배정될 수 있게 한다. (자투리가 최소 교집합 시간 이상일 때만)
+                        best.combo.forEach(m => {
+                            const mkUnit = (s, e) => ({
+                                id: Math.random().toString(36).substr(2, 9),
+                                name: m.name,
+                                gender: m.gender,
+                                time: { start: s, end: e, originalStr: `${minutesToTime(s)}-${minutesToTime(e)}` }
+                            });
+                            if (best.overlapStart - m.time.start >= minOverlap) {
+                                currentPool.push(mkUnit(m.time.start, best.overlapStart));
+                            }
+                            if (m.time.end - best.overlapEnd >= minOverlap) {
+                                currentPool.push(mkUnit(best.overlapEnd, m.time.end));
+                            }
+                        });
                     } else {
                         skipped.push(p1);
                     }
@@ -490,13 +513,14 @@
                         for (let i = 0; i < skipped.length; i++) {
                             let g = [p1, skipped[i]];
                             let res = isValidGroup(g, minOverlap);
-                            if (res.valid) {
+                            if (res.valid && !formedSignatures.has(sigOf(g))) {
                                 formedGroups.push({
                                     people: g,
                                     start: res.overlapStart,
                                     end: res.overlapEnd,
                                     isMixed: false
                                 });
+                                formedSignatures.add(sigOf(g));
                                 skipped.splice(i, 1);
                                 foundPair = true;
                                 break;
