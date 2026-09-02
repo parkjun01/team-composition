@@ -108,7 +108,7 @@
             <ul class="list-disc pl-5 space-y-1">
                 <li>조원은 <strong>최소 2명에서 최대 3명</strong>으로 구성됩니다.</li>
                 <li><strong>남1+여1 (불가)</strong> 조건을 엄격하게 적용했습니다. (2인조는 오직 동성팀만 결성됩니다)</li>
-                <li><strong>남녀 조합 규칙을 지키면서 팀을 최대한 많이</strong> 만드는 것이 1순위입니다. 혼성팀이냐 아니냐를 그 자체로 우선하지 않고, <strong>더 많은 팀이 나오는 쪽</strong>을 택합니다. (팀 수·낙오자가 같을 때만 혼성팀 수를 참고)</li>
+                <li><strong>혼성 팀 결성이 1순위</strong>입니다. 다만 혼성 위주로 짜서 편성되지 못하는 인원이 생기면, <strong>그 인원까지 편성되도록 팀 수를 최대화</strong>합니다. (우선순위: 낙오자 최소화 → 혼성팀 수 → 팀 수 → 겹치는 시간)</li>
                 <li><strong>넓게 적은 공강 하나도 자동으로 쪼개집니다.</strong> 예를 들어 15:00-18:00을 적으면 15:00-16:00 팀에 배정된 뒤 남는 16:00-18:00이 다시 매칭에 투입되어 다른 팀에도 들어갈 수 있습니다. (남는 시간이 최소 교집합 시간 이상일 때만, 같은 사람들끼리 중복 팀은 안 만듦)</li>
                 <li>마지막에 남은 자투리 인원들은 <strong>동성(남남/여여) 2인팀</strong>으로 추가 구제 편성하여 낙오자를 최소화합니다.</li>
             </ul>
@@ -537,11 +537,12 @@
                 
                 let teamCount = formedGroups.length;
 
-                // 1순위: 팀 수 최대화 → 2순위: 낙오자 최소화 → 3순위: 혼성팀 수 → 4순위: 총 교집합 시간
-                if (teamCount > bestResult.teamCount ||
-                   (teamCount === bestResult.teamCount && unassignedCount < bestResult.unassignedCount) ||
-                   (teamCount === bestResult.teamCount && unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
-                   (teamCount === bestResult.teamCount && unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && totalOverlap > bestResult.totalOverlap)) {
+                // 1순위: 낙오자 최소화(혼성 위주로 짜서 버려지는 인원 방지)
+                // → 2순위: 혼성팀 수 최대화 → 3순위: 팀 수 최대화 → 4순위: 총 교집합 시간
+                if (unassignedCount < bestResult.unassignedCount ||
+                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount > bestResult.mixedGroupCount) ||
+                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && teamCount > bestResult.teamCount) ||
+                   (unassignedCount === bestResult.unassignedCount && mixedGroupCount === bestResult.mixedGroupCount && teamCount === bestResult.teamCount && totalOverlap > bestResult.totalOverlap)) {
                     bestResult = {
                         formedGroups: formedGroups,
                         unassigned: skipped,
